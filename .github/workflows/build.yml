@@ -1,3 +1,4 @@
+
 name: Build
 on:
   push:
@@ -478,7 +479,7 @@ jobs:
           - arch: mipsel_24kc-static
             openwrt: "target=ramips subtarget=mt7621"
             target_cpu: mipsel
-            extra: 'mips_arch_variant="r2" mips_float_abi="soft" build_static=true arm_use_neon=false'
+            extra: 'mips_arch_variant="r2" mips_float_abi="soft" build_static=true no_madvise_syscall=true'
           - arch: mipsel_mips32
             openwrt: "target=bcm47xx subtarget=generic"
             target_cpu: mipsel
@@ -488,7 +489,7 @@ jobs:
             target_cpu: riscv64
     env:
       EXTRA_FLAGS: target_cpu="${{ matrix.target_cpu }}" target_os="openwrt" ${{ matrix.extra }}
-      OPENWRT_FLAGS: arch=${{ matrix.arch }} release=22.03.0 gcc_ver=11.2.0 ${{ matrix.openwrt }}
+      OPENWRT_FLAGS: arch=${{ matrix.arch }} release=23.05.0 gcc_ver=12.3.0 ${{ matrix.openwrt }}
       BUNDLE: naiveproxy-${{ github.event.release.tag_name }}-${{ github.job }}-${{ matrix.arch }}
     steps:
       - uses: actions/checkout@v4
@@ -509,7 +510,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: src/out/sysroot-build/openwrt
-          key: sysroot-openwrt-22.03.0-${{ matrix.arch }}-v${{ env.CACHE_EPOCH }}
+          key: sysroot-openwrt-23.05.0-${{ matrix.arch }}-v${{ env.CACHE_EPOCH }}
       - id: ccache-timestamp
         run: echo "CCACHE_TIMESTAMP=$(date +%s)" >>$GITHUB_OUTPUT
       - name: Cache ccache files
