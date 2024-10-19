@@ -477,7 +477,7 @@ jobs:
             target_cpu: mipsel
             extra: 'mips_arch_variant="r2" mips_float_abi="soft"'
           - arch: mipsel_24kc-static
-            openwrt: "target=ramips subtarget=rt305x"
+            openwrt: "target=ramips subtarget=mt7621"
             target_cpu: mipsel
             extra: 'mips_arch_variant="r2" mips_float_abi="soft" build_static=true use_partition_alloc=false'
           - arch: mipsel_mips32
