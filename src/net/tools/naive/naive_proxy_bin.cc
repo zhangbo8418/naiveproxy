@@ -3,7 +3,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include <algorithm>
 #include <cstdlib>
 #include <iostream>
 #include <limits>
@@ -65,6 +64,7 @@
 #include "net/third_party/quiche/src/quiche/quic/core/quic_versions.h"
 #include "net/tools/naive/naive_command_line.h"
 #include "net/tools/naive/naive_config.h"
+#include "net/tools/naive/naive_logging.h"
 #include "net/tools/naive/naive_protocol.h"
 #include "net/tools/naive/naive_proxy.h"
 #include "net/tools/naive/naive_proxy_delegate.h"
@@ -72,7 +72,6 @@
 #include "net/traffic_annotation/network_traffic_annotation.h"
 #include "net/url_request/url_request_context.h"
 #include "net/url_request/url_request_context_builder.h"
-#include "third_party/boringssl/src/include/openssl/ssl.h"
 #include "url/gurl.h"
 #include "url/scheme_host_port.h"
 #include "url/url_util.h"
@@ -99,7 +98,6 @@ namespace {
 constexpr int kListenBackLog = 512;
 constexpr int kDefaultMaxSocketsPerPool = 256;
 constexpr int kDefaultMaxSocketsPerGroup = 255;
-constexpr int kExpectedMaxUsers = 8;
 constexpr net::NetworkTrafficAnnotationTag kTrafficAnnotation =
     net::DefineNetworkTrafficAnnotation("naive", "");
 
@@ -229,7 +227,7 @@ std::unique_ptr<URLRequestContext> BuildURLRequestContext(
     proxy_config.proxy_rules().single_proxies.SetSingleProxyChain(
         config.proxy_chains.at(proxy_chain_index));
   }
-  LOG(INFO) << "Proxying via "
+  NAIVE_LOG_INFO() << "Proxying via "
             << proxy_config.proxy_rules().single_proxies.ToDebugString();
   auto proxy_service =
       ConfiguredProxyResolutionService::CreateWithoutProxyResolver(
@@ -254,12 +252,6 @@ std::unique_ptr<URLRequestContext> BuildURLRequestContext(
     struct NoPostQuantum : public SSLConfigService {
       SSLContextConfig GetSSLContextConfig() override {
         SSLContextConfig config;
-        std::erase_if(
-            config.supported_named_groups, [](const SSLNamedGroupInfo& g) {
-              return g.group_id == SSL_GROUP_X25519_MLKEM768 ||
-                     g.group_id == SSL_GROUP_X25519_KYBER768_DRAFT00 ||
-                     g.group_id == SSL_GROUP_MLKEM1024;
-            });
         return config;
       }
 
@@ -368,16 +360,6 @@ int main(int argc, char* argv[]) {
   url::AddStandardScheme("socks",
                          url::SCHEME_WITH_HOST_PORT_AND_USER_INFORMATION);
   url::AddStandardScheme("redir", url::SCHEME_WITH_HOST_AND_PORT);
-  net::ClientSocketPoolManager::set_socket_soft_cap_per_pool_for_test(
-      net::HttpNetworkSession::SocketPoolType::kNormal,
-      kDefaultMaxSocketsPerPool * kExpectedMaxUsers);
-  net::ClientSocketPoolManager::set_max_sockets_per_proxy_chain(
-      net::HttpNetworkSession::SocketPoolType::kNormal,
-      kDefaultMaxSocketsPerPool * kExpectedMaxUsers);
-  net::ClientSocketPoolManager::set_max_sockets_per_group_for_test(
-      net::HttpNetworkSession::SocketPoolType::kNormal,
-      kDefaultMaxSocketsPerGroup * kExpectedMaxUsers);
-  net::ClientSocketPool::set_used_idle_socket_timeout(base::Seconds(60));
 
   const auto& proc = *base::CommandLine::ForCurrentProcess();
   const auto& args = proc.GetArgs();
@@ -418,12 +400,17 @@ int main(int argc, char* argv[]) {
                  "--proxy=<proto>://[<user>:<pass>@]<hostname>[:<port>]\n"
                  "                           proto: https, quic\n"
                  "--insecure-concurrency=<N> Use N connections, insecure\n"
+                 "--max-users=<N>            Scale socket pool limits (default 8,\n"
+                 "                           use 1 on low-memory routers)\n"
                  "--tunnel-timeout=<SECONDS> Rotate tunnels after timeout\n"
                  "--idle-timeout=<SECONDS>   Close idle streams after timeout\n"
                  "--extra-headers=...        Extra headers split by CRLF\n"
                  "--host-resolver-rules=...  Resolver rules\n"
                  "--resolver-range=...       Redirect resolver range\n"
                  "--log[=<path>]             Log to stderr, or file\n"
+                 "--log-level=<level>        Minimum log level when logging\n"
+                 "                           is enabled: info, warning, error\n"
+                 "                           (default: error)\n"
                  "--log-net-log=<path>       Save NetLog\n"
                  "--ssl-key-log-file=<path>  Save SSL keys for Wireshark\n"
                  "--no-post-quantum          No post-quantum key agreement\n"
@@ -441,6 +428,19 @@ int main(int argc, char* argv[]) {
     return EXIT_FAILURE;
   }
   CHECK(logging::InitLogging(config.log));
+  net::ApplyNaiveLoggingSettings(config);
+
+  const int max_users = config.max_users;
+  net::ClientSocketPoolManager::set_socket_soft_cap_per_pool_for_test(
+      net::HttpNetworkSession::SocketPoolType::kNormal,
+      kDefaultMaxSocketsPerPool * max_users);
+  net::ClientSocketPoolManager::set_max_sockets_per_proxy_chain(
+      net::HttpNetworkSession::SocketPoolType::kNormal,
+      kDefaultMaxSocketsPerPool * max_users);
+  net::ClientSocketPoolManager::set_max_sockets_per_group_for_test(
+      net::HttpNetworkSession::SocketPoolType::kNormal,
+      kDefaultMaxSocketsPerGroup * max_users);
+  net::ClientSocketPool::set_used_idle_socket_timeout(base::Seconds(60));
 
   if (!config.ssl_key_log_file.empty()) {
     net::SSLClientSocket::SetSSLKeyLogger(
@@ -505,7 +505,7 @@ int main(int argc, char* argv[]) {
                  << net::ErrorToShortString(result);
       return EXIT_FAILURE;
     }
-    LOG(INFO) << "Listening on " << net::ToString(listen_config.protocol)
+    NAIVE_LOG_INFO() << "Listening on " << net::ToString(listen_config.protocol)
               << "://" << listen_config.addr << ":" << listen_config.port;
 
     if (resolver == nullptr &&
@@ -551,7 +551,8 @@ int main(int argc, char* argv[]) {
   }
 
   if (getenv("TEST_MARK_STARTUP") != nullptr) {
-    LOG(INFO) << "TEST_MARK_STARTUP";
+    // Always emit for CI basic tests; must not be gated by log-level.
+    LOG(ERROR) << "TEST_MARK_STARTUP";
   }
   base::RunLoop().Run();
 

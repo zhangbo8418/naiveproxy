@@ -10,7 +10,6 @@
 
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
-#include "base/logging.h"
 #include "base/rand_util.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_util.h"
@@ -21,6 +20,7 @@
 #include "net/base/io_buffer.h"
 #include "net/base/load_flags.h"
 #include "net/base/net_errors.h"
+#include "net/tools/naive/naive_logging.h"
 #include "net/base/privacy_mode.h"
 #include "net/base/url_util.h"
 #include "net/filter/filter_source_stream.h"
@@ -233,7 +233,7 @@ int PreambleGetter::Start(CompletionOnceCallback callback,
                                                     preamble_index, headers);
 
   if (log_url) {
-    LOG(INFO) << "Preamble " << root_.Resolve(req.path).spec();
+    NAIVE_LOG_INFO() << "Preamble " << root_.Resolve(req.path).spec();
   }
   RequestPriority priority = LOWEST;
   if (req.path == "/" || req.ext == "css") {

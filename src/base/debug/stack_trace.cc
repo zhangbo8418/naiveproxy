@@ -266,7 +266,20 @@ uintptr_t GetStackEnd() {
   }
 #endif
 
-  // Don't know how to get end of the stack.
+  // musl (e.g. OpenWrt mipsel) and other non-glibc Linux libcs.
+  uintptr_t stack_begin = 0;
+  size_t stack_size = 0;
+  pthread_attr_t attributes;
+  int error = pthread_getattr_np(pthread_self(), &attributes);
+  if (!error) {
+    error = pthread_attr_getstack(
+        &attributes, reinterpret_cast<void**>(&stack_begin), &stack_size);
+    pthread_attr_destroy(&attributes);
+  }
+  if (!error && stack_size) {
+    return stack_begin + stack_size;
+  }
+
   return 0;
 #endif
 }
@@ -372,7 +385,7 @@ std::string StackTrace::ToStringWithPrefix(cstring_view prefix_string) const {
 #if !defined(__UCLIBC__) && !defined(_AIX)
   OutputToStreamWithPrefix(&stream, prefix_string);
 #endif
-  return std::move(stream).str();
+  return stream.str();
 }
 
 // static
@@ -443,6 +456,12 @@ NOINLINE size_t TraceStackFramePointers(span<const void*> out_trace,
   uintptr_t stack_end = GetStackEnd();
   size_t depth = 0;
   while (depth < out_trace.size()) {
+    // Without stack bounds, unwinding can dereference wild frame pointers and
+    // crash (seen on OpenWrt/mipsel musl when GetStackEnd() returned 0).
+    if (!stack_end || fp > stack_end - 2 * sizeof(uintptr_t)) {
+      break;
+    }
+
     uintptr_t pc = GetStackFramePC(fp);
     if (skip_initial != 0) {
       skip_initial--;

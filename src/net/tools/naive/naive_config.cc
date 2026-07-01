@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <iostream>
+#include <string_view>
 
 #include "base/strings/escape.h"
 #include "base/strings/string_number_conversions.h"
@@ -16,6 +17,23 @@
 
 namespace net {
 namespace {
+
+bool ParseLogLevel(std::string_view level, int* out) {
+  if (level == "info") {
+    *out = logging::LOGGING_INFO;
+    return true;
+  }
+  if (level == "warning") {
+    *out = logging::LOGGING_WARNING;
+    return true;
+  }
+  if (level == "error") {
+    *out = logging::LOGGING_ERROR;
+    return true;
+  }
+  return false;
+}
+
 ProxyServer MyProxyUriToProxyServer(std::string_view uri) {
   if (uri.compare(0, 7, "quic://") == 0) {
     return ProxySchemeHostAndPortToProxyServer(ProxyServer::SCHEME_QUIC,
@@ -116,6 +134,24 @@ bool NaiveConfig::Parse(const base::DictValue& value) {
     }
     if (insecure_concurrency < 1) {
       std::cerr << "Invalid concurrency" << std::endl;
+      return false;
+    }
+  }
+
+  if (const base::Value* v = value.Find("max-users")) {
+    if (std::optional<int> i = v->GetIfInt()) {
+      max_users = *i;
+    } else if (const std::string* str = v->GetIfString()) {
+      if (!base::StringToInt(*str, &max_users)) {
+        std::cerr << "Invalid max-users" << std::endl;
+        return false;
+      }
+    } else {
+      std::cerr << "Invalid max-users" << std::endl;
+      return false;
+    }
+    if (max_users < 1) {
+      std::cerr << "Invalid max-users" << std::endl;
       return false;
     }
   }
@@ -295,6 +331,26 @@ bool NaiveConfig::Parse(const base::DictValue& value) {
       }
     } else {
       std::cerr << "Invalid log" << std::endl;
+      return false;
+    }
+  }
+
+  if (const base::Value* v = value.Find("log-level")) {
+    if (const std::string* str = v->GetIfString()) {
+      if (!ParseLogLevel(*str, &min_log_level)) {
+        std::cerr << "Invalid log-level (use info, warning, or error)"
+                  << std::endl;
+        return false;
+      }
+    } else if (std::optional<int> level = v->GetIfInt()) {
+      if (*level < logging::LOGGING_INFO || *level > logging::LOGGING_ERROR) {
+        std::cerr << "Invalid log-level (use 0=info, 1=warning, 2=error)"
+                  << std::endl;
+        return false;
+      }
+      min_log_level = *level;
+    } else {
+      std::cerr << "Invalid log-level" << std::endl;
       return false;
     }
   }
