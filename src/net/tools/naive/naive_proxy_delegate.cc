@@ -12,9 +12,9 @@
 #include <string>
 #include <string_view>
 
-#include "base/logging.h"
 #include "base/rand_util.h"
 #include "base/strings/string_util.h"
+#include "net/tools/naive/naive_logging.h"
 #include "net/base/proxy_string_util.h"
 #include "net/http/http_request_headers.h"
 #include "net/http/http_response_headers.h"
@@ -168,7 +168,7 @@ Error NaiveProxyDelegate::OnTunnelHeadersReceived(
   std::optional<PaddingType>& padding_type =
       padding_type_by_server_[proxy_server];
   if (!padding_type.has_value() || padding_type != new_padding_type) {
-    LOG(INFO) << ProxyServerToProxyUri(proxy_server)
+    NAIVE_LOG_INFO() << ProxyServerToProxyUri(proxy_server)
               << " negotiated padding type: "
               << ToReadableString(*new_padding_type);
     padding_type = new_padding_type;

@@ -69,6 +69,11 @@ namespace net {
 
 namespace {
 
+void LogClosedSocketOperation(const char* operation) {
+  LOG(ERROR) << "TCPSocketPosix::" << operation
+             << " called after underlying socket was closed";
+}
+
 // SetTCPKeepAlive sets SO_KEEPALIVE.
 bool SetTCPKeepAlive(int fd, bool enable, int delay) {
   // Enabling TCP keepalives is the same on all platforms.
@@ -359,6 +364,10 @@ int TCPSocketPosix::Read(IOBuffer* buf,
                          CompletionOnceCallback callback) {
   DCHECK(socket_);
   DCHECK(!callback.is_null());
+  if (!socket_) {
+    LogClosedSocketOperation("Read");
+    return ERR_SOCKET_NOT_CONNECTED;
+  }
 
   int rv = socket_->Read(
       buf, buf_len,
@@ -379,6 +388,10 @@ int TCPSocketPosix::ReadIfReady(IOBuffer* buf,
                                 CompletionOnceCallback callback) {
   DCHECK(socket_);
   DCHECK(!callback.is_null());
+  if (!socket_) {
+    LogClosedSocketOperation("ReadIfReady");
+    return ERR_SOCKET_NOT_CONNECTED;
+  }
 
   int rv = socket_->ReadIfReady(
       buf, buf_len,
@@ -391,6 +404,10 @@ int TCPSocketPosix::ReadIfReady(IOBuffer* buf,
 
 int TCPSocketPosix::CancelReadIfReady() {
   DCHECK(socket_);
+  if (!socket_) {
+    LogClosedSocketOperation("CancelReadIfReady");
+    return ERR_SOCKET_NOT_CONNECTED;
+  }
 
   return socket_->CancelReadIfReady();
 }
@@ -402,6 +419,10 @@ int TCPSocketPosix::Write(
     const NetworkTrafficAnnotationTag& traffic_annotation) {
   DCHECK(socket_);
   DCHECK(!callback.is_null());
+  if (!socket_) {
+    LogClosedSocketOperation("Write");
+    return ERR_SOCKET_NOT_CONNECTED;
+  }
 
   CompletionOnceCallback write_callback = base::BindOnce(
       &TCPSocketPosix::WriteCompleted,

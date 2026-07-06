@@ -8,10 +8,10 @@
 #include <iterator>
 #include <utility>
 
-#include "base/logging.h"
 #include "base/task/single_thread_task_runner.h"
 #include "net/base/io_buffer.h"
 #include "net/base/net_errors.h"
+#include "net/tools/naive/naive_logging.h"
 #include "net/base/url_util.h"
 #include "net/dns/dns_names_util.h"
 #include "net/dns/dns_query.h"
@@ -68,7 +68,7 @@ void RedirectResolver::DoRead() {
       return;
     }
     if (rv < 0) {
-      LOG(INFO) << "DoRead: ignoring error " << ErrorToShortString(rv);
+      NAIVE_LOG_INFO() << "DoRead: ignoring error " << ErrorToShortString(rv);
     }
   }
 }
@@ -80,7 +80,7 @@ void RedirectResolver::OnRecv(int result) {
     return;
   }
   if (rv < 0) {
-    LOG(INFO) << "OnRecv: ignoring error " << ErrorToShortString(rv);
+    NAIVE_LOG_INFO() << "OnRecv: ignoring error " << ErrorToShortString(rv);
   }
 
   DoRead();
@@ -88,7 +88,7 @@ void RedirectResolver::OnRecv(int result) {
 
 void RedirectResolver::OnSend(int result) {
   if (result < 0) {
-    LOG(INFO) << "OnSend: ignoring error " << ErrorToShortString(result);
+    NAIVE_LOG_INFO() << "OnSend: ignoring error " << ErrorToShortString(result);
   }
 
   DoRead();
@@ -101,7 +101,7 @@ int RedirectResolver::HandleReadResult(int result) {
 
   DnsQuery query(buffer_.get());
   if (!query.Parse(result)) {
-    LOG(INFO) << "Malformed DNS query from " << recv_address_.ToString();
+    NAIVE_LOG_INFO() << "Malformed DNS query from " << recv_address_.ToString();
     return ERR_INVALID_ARGUMENT;
   }
 
@@ -159,7 +159,7 @@ int RedirectResolver::HandleReadResult(int result) {
         // Too few available addresses. Overwrites old one.
         auto res_it = by_addr->second;
 
-        LOG(INFO) << "Overwrite " << res_it->name << " "
+        NAIVE_LOG_INFO() << "Overwrite " << res_it->name << " "
                   << PackedIPv4ToString(res_it->addr) << " with " << name << " "
                   << PackedIPv4ToString(addr);
         resolution_by_name_.erase(res_it->by_name);
@@ -175,7 +175,7 @@ int RedirectResolver::HandleReadResult(int result) {
         res_it->by_name = by_name;
         res_it->by_addr = by_addr;
       } else {
-        LOG(INFO) << "Add " << name << " " << PackedIPv4ToString(addr);
+        NAIVE_LOG_INFO() << "Add " << name << " " << PackedIPv4ToString(addr);
         resolutions_.emplace_back();
         auto res_it = std::prev(resolutions_.end());
 
@@ -193,7 +193,7 @@ int RedirectResolver::HandleReadResult(int result) {
              it != resolutions_.end() &&
              (now - it->time).InSeconds() > kResolutionRecycleTime;) {
           auto next = std::next(it);
-          LOG(INFO) << "Drop " << it->name << " "
+          NAIVE_LOG_INFO() << "Drop " << it->name << " "
                     << PackedIPv4ToString(it->addr);
           resolution_by_name_.erase(it->by_name);
           resolution_by_addr_.erase(it->by_addr);
