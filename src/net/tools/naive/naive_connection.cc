@@ -14,7 +14,7 @@
 
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
-#include "base/logging.h"
+#include "net/tools/naive/naive_logging.h"
 #include "base/rand_util.h"
 #include "base/strings/strcat.h"
 #include "base/task/single_thread_task_runner.h"
@@ -277,7 +277,7 @@ int NaiveConnection::DoConnectServer() {
     return ERR_ADDRESS_INVALID;
   }
 
-  LOG(INFO) << "Connection " << id_ << " to " << origin.ToString() << " via "
+  NAIVE_LOG_INFO() << "Connection " << id_ << " to " << origin.ToString() << " via "
             << proxy_info_.ToDebugString();
 
   // Ignores socket limit set by socket pool for this type of socket.

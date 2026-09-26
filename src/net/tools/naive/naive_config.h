@@ -48,6 +48,10 @@ struct NaiveConfig {
 
   int insecure_concurrency = 1;
 
+  // Scale ClientSocketPool limits. Default 8 matches historical
+  // kExpectedMaxUsers. Use 1 on low-memory routers.
+  int max_users = 8;
+
 #if BUILDFLAG(IS_ANDROID)
   int tunnel_timeout = 600;
   int idle_timeout = 300;
@@ -68,6 +72,9 @@ struct NaiveConfig {
   size_t resolver_prefix = 10;
 
   logging::LoggingSettings log = {.logging_dest = logging::LOG_NONE};
+  // Minimum severity when |log| is enabled. LOGGING_INFO / LOGGING_WARNING /
+  // LOGGING_ERROR (default). Ignored when logging is disabled.
+  int min_log_level = logging::LOGGING_ERROR;
   base::FilePath log_file;
 
   base::FilePath log_net_log;

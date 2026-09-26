@@ -10,7 +10,7 @@
 
 #include "base/functional/bind.h"
 #include "base/location.h"
-#include "base/logging.h"
+#include "net/tools/naive/naive_logging.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
@@ -285,7 +285,7 @@ void NaiveProxy::Close(unsigned int connection_id, int reason) {
     return;
   }
 
-  LOG(INFO) << "Connection " << connection_id
+  NAIVE_LOG_INFO() << "Connection " << connection_id
             << " closed: " << ErrorToShortString(reason);
 
   // The call stack might have callbacks which still have the pointer of
